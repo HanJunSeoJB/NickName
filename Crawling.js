@@ -1,14 +1,17 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const fs = require("fs");
-const log = console.log;
+const fs = require('fs');
+const _ = require('lodash');
 
 let result = [];
 let page = 0;
 
+
+let url = 'https://ko.wiktionary.org/w/index.php?title=%EB%B6%84%EB%A5%98:%ED%95%9C%EA%B5%AD%EC%96%B4_%EB%AA%85%EC%82%AC';
+
 const getHtml = async () => {
   try {
-    return await axios.get("https://ko.wiktionary.org/w/index.php?title=%EB%B6%84%EB%A5%98:%ED%95%9C%EA%B5%AD%EC%96%B4_%EB%AA%85%EC%82%AC&from=%EA%B0%80");
+    return await axios.get(url);
   } catch (error) {
     console.error(error);
   }
@@ -17,34 +20,36 @@ const getHtml = async () => {
 const parsingLoop = () => {
   getHtml()
   .then(html => {
+    const $ = cheerio.load(html.data);
+    const $bodyList = $(".mw-category-group > ul > li").children("a");
+    const next = $('#mw-pages > a:last-child');
+    $bodyList.each(function(i, elem) {
+      result.push($(this).text())
+    });
+    if(next.text() == '이전 페이지') {
+      return false;
+    }
+    url = `https://ko.wiktionary.org${next.attr('href')}`;
+    return true;
   })
   .then(res => {
     if(!res) {
       return fs.writeFile('word.txt', result, 'utf8', (err) => {
         console.log(`${result.length}개 단어 저장 완료`);
       });
-    }
+    } 
     page++;
-    console.log(`진행중: ${page / 2.6714}% 완료`);
+    console.log(`진행 중: ${page / 1.3357}% 완료`);
     parsingLoop();
   });
 }
 
-parsingLoop();
+ parsingLoop();
 
-getHtml()
-  .then(html => {
-    let ulList = [];
-    const $ = cheerio.load(html.data);
-    const $bodyList = $(".mw-category-group > ul > li").children("a");
-
-    $bodyList.each(function(i, elem) {
-      ulList[i] = {
-          title: $(this).text()
-      };
-    });
-
-    const data = ulList.filter(n => n.title);
-    return data;
-  })
-  .then(res => log(res));
+/*단어 필터링 후 단어 뭉치 만들기
+ fs.readFile('./assets/not-two-letters.txt', 'utf8', (err, data) => {
+   const result = _.filter(data.split(','), (o) => { return o.length === 3; } )
+   fs.writeFile('./assets/3-word.txt', result, 'utf8', (err) => {
+     console.log(`${result.length}개 단어 저장 완료`);
+   });
+ });*/
